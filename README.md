@@ -6,4 +6,4 @@ from chapter 3 Markov Decision Process
 
 
 ## history:
-+ (25.04.21)-1.0.0 create repository.
++ (25.04.21)-1.0.0 create repository.# d2rl

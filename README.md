@@ -10,6 +10,10 @@ from chapter 3 Markov Decision Process
 
 
 
+```bash
+git push -u origin main --force
+```
+
 
 e.g.    ->  for example, 例如。
 
@@ -22,3 +26,4 @@ et al.  ->  等其他人。
 ex.     ->  exercise.
 
 asap    -> as soon as possible.
+

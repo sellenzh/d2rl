@@ -64,12 +64,12 @@ def init_weights(m):
     init weights of model.
     """
     def truncated_normal_init(t, mean=.0, std=.01):
-        torch.nn.init.normal_init_(t, mean,std)
+        torch.nn.init.normal_(t, mean,std)
         while True:
             cond = (t < mean - 2 * std) | (t > mean + 2 * std)
             if not torch.sum(cond):
                 break
-            t = torch.where(cond, torch.nn.normal_(torch.ones(t.shape, device=device), mean=mean, std=std), t)
+            t = torch.where(cond, torch.nn.init.normal_(torch.ones(t.shape, device=device), mean=mean, std=std), t)
         return t
     
     if type(m) == nn.Linear or isinstance(m, FCLayer):
@@ -255,5 +255,90 @@ class ReplayBuffer:
         
 
 class PETS:
-    def __init__(self):
-        pass
+    def __init__(self, env, replay_buffer, n_squence, elite_ratio, plan_horizon, num_episodes):
+        self._env = env
+        self._env_pool = replay_buffer
+
+        obs_dim = env.observation_space.shape[0]
+        self._action_dim = env.action_space.shape[0]
+        self._model = EnsembleDynamicsModel(obs_dim, self._action_dim)
+        self._fake_env = FakeEnv(self._model)
+        self.upper_bound = env.action_space.high[0]
+        self.lower_bound = env.action_space.low[0]
+
+        self._cem = CEM(n_squence, elite_ratio, self._fake_env, self.upper_bound, self.lower_bound)
+        self.plan_horizon = plan_horizon
+        self.num_episodes = num_episodes
+
+    def train_model(self):
+        env_samples = self._env_pool.return_all_samples()
+        obs = env_samples[0]
+        actions = np.array(env_samples[1])
+        rewards = np.array(env_samples[2]).reshape(-1, 1)
+        next_obs = env_samples[3]
+        inputs = np.concatenate((obs, actions), axis=-1)
+        labels = np.concatenate((rewards, next_obs - obs), axis=-1)
+        self._model.train(inputs, labels)
+
+    def mpc(self):
+        mean = np.tile((self.upper_bound + self.lower_bound) / 2., self.plan_horizon)
+        var = np.tile(np.square(self.upper_bound - self.lower_bound) / 16, self.plan_horizon)
+        obs, done, episode_return = self._env.reset(), False, 0
+        while not done:
+            actions = self._cem.optimize(obs, mean, var)
+            action = actions[:self._action_dim] # select 1st action
+            next_obs, reward, done, _, _ = self._env.step(action)
+            self._env_pool.add(obs, action, reward, next_obs, done)
+            obs = next_obs
+            episode_return += reward
+            mean = np.concatenate([np.copy(actions)[self._action_dim:], np.zeros(self._action_dim)])
+        return episode_return
+    
+    def explore(self):
+        obs, done, episode_return = self._env.reset(), False, 0
+        while not done:
+            action = self._env.action_space.sample()
+            # temp = self._env.step(action)
+            next_obs, reward, done, temp, _ = self._env.step(action)
+            self._env_pool.add(obs, action, reward, next_obs, done)
+            obs = next_obs
+            episode_return += reward
+        return episode_return
+    
+    def train(self):
+        return_list = []
+        # explore with random policy collect a squence.
+        explore_return = self.explore()
+        print(f'episode: 1, return: {explore_return}')
+        return_list.append(explore_return)
+
+        for i_episode in range(self.num_episodes - 1):
+            self.train_model()
+            episode_return = self.mpc()
+            return_list.append(episode_return)
+            print(f'episode: {i_episode + 2}, return: {episode_return}')
+        return return_list
+    
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*np.bool8.*")
+
+
+
+buffer_size = 100000
+n_squence = 50
+elite_ratio = .2
+plan_horizon, num_episodes = 25, 10
+env_name = 'Pendulum-v1'
+env = gym.make(env_name)
+
+replay_buffer = ReplayBuffer(buffer_size)
+pets = PETS(env, replay_buffer, n_squence, elite_ratio, plan_horizon, num_episodes)
+return_list = pets.train()
+
+episodes_list = list(range(len(return_list)))
+plt.plot(episodes_list, return_list)
+plt.xlabel('Episodes')
+plt.ylabel('Returns')
+plt.title(f'PETS on {env_name}')
+plt.savefig('pets.jpg')
+        

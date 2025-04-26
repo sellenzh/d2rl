@@ -101,7 +101,7 @@ class EnsembleModel(nn.Module):
         self._min_logvar = nn.Parameter((-torch.ones((1, self._output_dim // 2)).float() * 10).to(device),
                                         requires_grad=True)
         
-        self.layer1 = FCLayer(state_dim + action_dim, 100, ensemble_size, Swish())
+        self.layer1 = FCLayer(state_dim + action_dim, 200, ensemble_size, Swish())
         self.layer2 = FCLayer(200, 200, ensemble_size, Swish())
         self.layer3 = FCLayer(200, 200, ensemble_size, Swish())
         self.layer4 = FCLayer(200, 200, ensemble_size, Swish())
@@ -112,9 +112,7 @@ class EnsembleModel(nn.Module):
 
     def forward(self, x, return_log_var=False):
         ret = self.layer5(self.layer4(self.layer3(self.layer2(self.layer1(x)))))
-
         mean = ret[:, :, :self._output_dim // 2]
-
         logvar = self._max_logvar - F.softplus(self._max_logvar - ret[:, :, self._output_dim // 2:])
         logvar = self._min_logvar + F.softplus(logvar - self._min_logvar)
         return mean, logvar if return_log_var else torch.exp(logvar)
@@ -283,26 +281,29 @@ class PETS:
     def mpc(self):
         mean = np.tile((self.upper_bound + self.lower_bound) / 2., self.plan_horizon)
         var = np.tile(np.square(self.upper_bound - self.lower_bound) / 16, self.plan_horizon)
-        obs, done, episode_return = self._env.reset(), False, 0
-        while not done:
+        obs, done, episode_return = self._env.reset()[0], False, 0
+        for num in range(100):
             actions = self._cem.optimize(obs, mean, var)
             action = actions[:self._action_dim] # select 1st action
-            next_obs, reward, done, _, _ = self._env.step(action)
+            next_obs, reward, done, _, __ = self._env.step(action)
             self._env_pool.add(obs, action, reward, next_obs, done)
             obs = next_obs
             episode_return += reward
             mean = np.concatenate([np.copy(actions)[self._action_dim:], np.zeros(self._action_dim)])
+        print(f'MPC finish num: {num + 1}')
         return episode_return
     
     def explore(self):
-        obs, done, episode_return = self._env.reset(), False, 0
-        while not done:
+        obs, done, episode_return = self._env.reset()[0], False, 0
+        for _ in range(10000):
             action = self._env.action_space.sample()
-            # temp = self._env.step(action)
-            next_obs, reward, done, temp, _ = self._env.step(action)
+            next_obs, reward, done, _, __ = self._env.step(action)
             self._env_pool.add(obs, action, reward, next_obs, done)
             obs = next_obs
             episode_return += reward
+            if done:
+                print(done)
+                break
         return episode_return
     
     def train(self):

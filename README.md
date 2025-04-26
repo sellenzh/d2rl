@@ -6,7 +6,8 @@ from chapter 3 Markov Decision Process
 
 
 ## history:
-+ (25.04.21)-1.0.0 create repository.# d2rl
++ (25.04.26)-1.1.0 Add PETS.
++ (25.04.21)-1.0.0 create repository.
 
 
 

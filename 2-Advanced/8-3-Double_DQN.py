@@ -10,7 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-
+import rl_utils
 
 class Qnet(nn.Module):
     def __init__(self, state_dim, hidden_dim, action_dim):
@@ -81,7 +81,7 @@ target_update, buffer_size, minimal_size = 50, 5000, 1000
 batch_size = 64
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
-env_name = 'Pendulum-v0'
+env_name = 'Pendulum-v1'
 env = gym.make(env_name)
 state_dim = env.observation_space.shape[0]
 action_dim = 11
@@ -94,18 +94,19 @@ def dis_to_con(discrete_action, env, action_dim):
 def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size):
     return_list = []
     max_q_value_list = []
+    max_q_value = 0
     for i in range(10):
         with tqdm(total=int(num_episodes / 10), desc=f'Iteration {i}') as pbar:
             for i_episode in range(int(num_episodes / 10)):
                 episode_return = 0
-                state = env.reset()
+                state = env.reset()[0]
                 done = False
                 while not done:
                     action = agent.take_action(state)
                     max_q_value = agent.max_q_len(state) * .005 + max_q_value * .995
                     max_q_value_list.append(max_q_value)
                     action_continuous = dis_to_con(action, env, agent.action_dim)
-                    next_state, reward, done, _ = env.step([action_continuous])
+                    next_state, reward, done, _, _ = env.step([action_continuous])
                     replay_buffer.add(state, action, reward, next_state, done)
                     state = next_state
                     episode_return += reward
@@ -127,12 +128,11 @@ def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size)
 
 random.seed(0)
 np.random.seed(0)
-env.seed(0)
 torch.manual_seed(0)
 replay_buffer = rl_utils.ReplayBuffer(buffer_size)
 agent = DQN(state_dim, hidden_dim, action_dim, lr, gamma, epsilon,
             target_update, device)
-return_list, max_q_value_list = train_DQN(agent, env, num_episodes,
+return_list, max_q_value_list = train_dqn(agent, env, num_episodes,
                                           replay_buffer, minimal_size,
                                           batch_size)
 

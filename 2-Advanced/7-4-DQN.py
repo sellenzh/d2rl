@@ -123,7 +123,7 @@ for i in range(10):
             done = False
             while not done:
                 action = agent.take_action(state)
-                next_state, reward, done, _, _ = env.step(action)
+                next_state, reward, _, done, _ = env.step(action)
                 replay_buffer.add(state, int(action), reward, next_state, done)
                 state = next_state
                 episode_return += reward

@@ -1,52 +1,56 @@
-"""
-
-"""
-
-import random
-import gym
 import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
+import random
+import gym
 from tqdm import tqdm
-import rl_utils
+import matplotlib.pyplot as plt
 
-class Qnet(nn.Module):
+
+class VAnet(nn.Module):
     def __init__(self, state_dim, hidden_dim, action_dim):
-        super(Qnet, self).__init__()
+        super(VAnet, self).__init__()
         self.fc1 = nn.Linear(state_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, action_dim)
+        self.fc_A = nn.Linear(hidden_dim, action_dim)
+        self.fc_V = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = F.relu(x)
-        return self.fc2(x)
+        x = F.relu(self.fc1(x))
+        A = self.fc_A(x)
+        V = self.fc_V(x)
+        Q = V + A - A.mean(1).view(-1, 1)
+        return Q
 
 
 class DQN:
-    def __init__(self, state_dim, hidden_dim, action_dim, learning_rate, gamma, epsilon, target_update, device, dqn_type='VanillaDQN'):
+    def __init__(self, state_dim, hidden_dim, action_dim, learning_rate, gamma, epsilon, target_update, device, dqn_type='VanillaDQN') -> None:
         self.action_dim = action_dim
-        self.q_net = Qnet(state_dim, hidden_dim, self.action_dim).to(device)
-        self.target_q_net = Qnet(state_dim, hidden_dim, self.action_dim).to(device)
+        if dqn_type == 'DuelingDQN':
+            self.q_net = VAnet(state_dim, hidden_dim, action_dim).to(device)
+            self.target_q_net = VAnet(state_dim, hidden_dim, action_dim).to(device)
+        else:
+            self.q_net = Qnet(state_dim, hidden_dim, action_dim).to(device)
+            self.target_q_net = Qnet(state_dim, hidden_dim, action_dim).to(device)
+        
         self.optimizer = torch.optim.Adam(self.q_net.parameters(), lr=learning_rate)
         self.gamma = gamma
-        self.epsilon = epsilon
+        self.epsilone = epsilon
         self.target_update = target_update
         self.count = 0
-        self.device = device
         self.dqn_type = dqn_type
+        self.device = device
 
     def take_action(self, state):
-        if random.random() < self.epsilon:
+        if np.random.random() < self.epsilone:
             action = np.random.randint(self.action_dim)
         else:
-            state = torch.tensor([state], dtype=torch.float).to(self.device)
+            state = torch.tensor([state], dtype=torch.float32).to(self.device)
             action = self.q_net(state).argmax().item()
         return action
 
-    def max_q_len(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+    def max_q_value(self, state):
+        state = torch.tensor([state], dtype=torch.float32).to(self.device)
         return self.q_net(state).max().item()
 
     def update(self, transition_dict):
@@ -56,12 +60,12 @@ class DQN:
         next_states = torch.tensor(transition_dict['next_states'], dtype=torch.float).to(self.device)
         dones = torch.tensor(transition_dict['dones'], dtype=torch.float).view(-1, 1).to(self.device)
         q_values = self.q_net(states).gather(1, actions)
-
         if self.dqn_type == 'DoubleDQN':
-            max_action = self.q_net(next_states).max(1)[1]
+            max_action = self.q_net(next_states).max(1)[1].view(-1, 1)
             max_next_q_values = self.target_q_net(next_states).gather(1, max_action)
         else:
             max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
+        
         q_targets = rewards + self.gamma * max_next_q_values * (1 - dones)
         dqn_loss = torch.mean(F.mse_loss(q_values, q_targets))
         self.optimizer.zero_grad()
@@ -73,23 +77,11 @@ class DQN:
         self.count += 1
 
 
-lr = .01
-num_episodes = 200
-hidden_dim = 128
-gamma, epsilon = .98, .01
-target_update, buffer_size, minimal_size = 50, 5000, 1000
-batch_size = 64
-device = torch.device('cuda:0')
-
-env_name = 'Pendulum-v1'
-env = gym.make(env_name)
-state_dim = env.observation_space.shape[0]
-action_dim = 11
-
 def dis_to_con(discrete_action, env, action_dim):
     action_lowbound = env.action_space.low[0]
     action_upbound = env.action_space.high[0]
     return action_lowbound + (discrete_action / (action_dim - 1)) * (action_upbound - action_lowbound)
+
 
 def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size):
     return_list = []
@@ -103,7 +95,7 @@ def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size)
                 done = False
                 while not done:
                     action = agent.take_action(state)
-                    max_q_value = agent.max_q_len(state) * .005 + max_q_value * .995
+                    max_q_value = agent.max_q_value(state) * .005 + max_q_value * .995
                     max_q_value_list.append(max_q_value)
                     action_continuous = dis_to_con(action, env, agent.action_dim)
                     next_state, reward, _, done, _ = env.step([action_continuous])
@@ -126,12 +118,28 @@ def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size)
     return return_list, max_q_value_list
 
 
+lr = .01
+num_episodes = 200
+hidden_dim = 128
+gamma, epsilon = .98, .01
+target_update, buffer_size, minimal_size = 50, 5000, 1000
+batch_size = 64
+device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+
+env_name = 'Pendulum-v1'
+env = gym.make(env_name)
+state_dim = env.observation_space.shape[0]
+action_dim = 11
+
+
+import rl_utils
 random.seed(0)
 np.random.seed(0)
 torch.manual_seed(0)
 replay_buffer = rl_utils.ReplayBuffer(buffer_size)
 agent = DQN(state_dim, hidden_dim, action_dim, lr, gamma, epsilon,
-            target_update, device)
+            target_update, device, 'DuelingDQN')
+
 return_list, max_q_value_list = train_dqn(agent, env, num_episodes,
                                           replay_buffer, minimal_size,
                                           batch_size)
@@ -141,8 +149,8 @@ mv_return = rl_utils.moving_average(return_list, 5)
 plt.plot(episodes_list, mv_return)
 plt.xlabel('Episodes')
 plt.ylabel('Returns')
-plt.title('DQN on {}'.format(env_name))
-plt.savefig('D-dqn-1.jpg')
+plt.title('Dueling DQN on {}'.format(env_name))
+plt.savefig('Dueling DQN 1.jpg')
 
 frames_list = list(range(len(max_q_value_list)))
 plt.plot(frames_list, max_q_value_list)
@@ -150,5 +158,6 @@ plt.axhline(0, c='orange', ls='--')
 plt.axhline(10, c='red', ls='--')
 plt.xlabel('Frames')
 plt.ylabel('Q value')
-plt.title('DQN on {}'.format(env_name))
-plt.savefig('D-dqn-2.jpg')
+plt.title('Dueling DQN on {}'.format(env_name))
+plt.savefig('Dueling DQN 2.jpg')
+        

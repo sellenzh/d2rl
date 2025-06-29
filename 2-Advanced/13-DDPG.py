@@ -55,7 +55,7 @@ class DDPG:
         self.device = device
 
     def take_action(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         action = self.actor(state).item()
         # 给动作添加噪声，增加探索
         action = action + self.sigma * np.random.randn(self.action_dim)
@@ -100,7 +100,7 @@ batch_size = 64
 sigma = 0.01  # 高斯噪声标准差
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-env_name = 'Pendulum-v0'
+env_name = 'Pendulum-v1'
 env = gym.make(env_name)
 random.seed(0)
 np.random.seed(0)

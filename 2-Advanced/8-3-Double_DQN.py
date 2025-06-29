@@ -46,7 +46,7 @@ class DQN:
         return action
 
     def max_q_len(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         return self.q_net(state).max().item()
 
     def update(self, transition_dict):
@@ -101,12 +101,14 @@ def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size)
                 episode_return = 0
                 state = env.reset()[0]
                 done = False
-                while not done:
+                steps = 0
+                while not done and steps < 200:
+                    steps += 1
                     action = agent.take_action(state)
                     max_q_value = agent.max_q_len(state) * .005 + max_q_value * .995
                     max_q_value_list.append(max_q_value)
                     action_continuous = dis_to_con(action, env, agent.action_dim)
-                    next_state, reward, _, done, _ = env.step([action_continuous])
+                    next_state, reward, done, _, __ = env.step([action_continuous])
                     replay_buffer.add(state, action, reward, next_state, done)
                     state = next_state
                     episode_return += reward

@@ -38,7 +38,7 @@ class ActorCritic:
         self.device = device
 
     def take_action(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         probs = self.actor(state)
         action_dist = torch.distributions.Categorical(probs)
         action = action_dist.sample()
@@ -69,8 +69,7 @@ critic_lr = 1e-2
 num_episodes = 1000
 hidden_dim = 128
 gamma = 0.98
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
-    "cpu")
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 env_name = 'CartPole-v1'
 env = gym.make(env_name)

@@ -9,7 +9,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-# import rl_utils
+import rl_utils
 
 
 class ReplayBuffer:
@@ -63,7 +63,7 @@ class DQN:
         if np.random.random() < self.epsilon:
             action = np.random.randint(self.action_dim)
         else:
-            state = torch.tensor([state], dtype=torch.float).to(self.device)
+            state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
             action = self.q_net(state).argmax().item()
         return action
     
@@ -102,7 +102,7 @@ batch_size = 64
 seed = 0
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-env_name = 'CartPole'
+env_name = 'CartPole-v1'
 env = gym.make(env_name)
 random.seed(seed)
 np.random.seed(seed)
@@ -121,9 +121,11 @@ for i in range(10):
             episode_return = 0
             state = env.reset()[0]
             done = False
-            while not done:
+            steps = 0
+            while not done and steps < 200:
+                steps += 1
                 action = agent.take_action(state)
-                next_state, reward, _, done, _ = env.step(action)
+                next_state, reward, done, _, __ = env.step(action)
                 replay_buffer.add(state, int(action), reward, next_state, done)
                 state = next_state
                 episode_return += reward

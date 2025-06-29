@@ -28,7 +28,7 @@ class REINFORCE:
         self.device = device
 
     def take_action(self, state: np.ndarray) -> int:
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         probs = self.policy_net(state)
         action_list = torch.distributions.Categorical(probs)
         action = action_list.sample()
@@ -80,9 +80,11 @@ for i in range(10):
             }
             state = env.reset()[0]
             done = False
-            while not done:
+            steps = 0
+            while not done and steps < 200:
+                steps += 1
                 action = agent.take_action(state)
-                next_state, reward, done, _, _ = env.step(action)
+                next_state, reward, done, _, __ = env.step(action)
                 transition_dict['states'].append(state)
                 transition_dict['actions'].append(action)
                 transition_dict['next_states'].append(next_state)

@@ -45,12 +45,12 @@ class DQN:
         if np.random.random() < self.epsilone:
             action = np.random.randint(self.action_dim)
         else:
-            state = torch.tensor([state], dtype=torch.float32).to(self.device)
+            state = torch.tensor(np.array([state]), dtype=torch.float32).to(self.device)
             action = self.q_net(state).argmax().item()
         return action
 
     def max_q_value(self, state):
-        state = torch.tensor([state], dtype=torch.float32).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float32).to(self.device)
         return self.q_net(state).max().item()
 
     def update(self, transition_dict):
@@ -93,7 +93,9 @@ def train_dqn(agent, env, num_episodes, replay_buffer, minimal_size, batch_size)
                 episode_return = 0
                 state = env.reset()[0]
                 done = False
-                while not done:
+                steps = 0
+                while not done and steps < 200:
+                    steps += 1
                     action = agent.take_action(state)
                     max_q_value = agent.max_q_value(state) * .005 + max_q_value * .995
                     max_q_value_list.append(max_q_value)

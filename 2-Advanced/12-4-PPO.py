@@ -43,7 +43,7 @@ class PPO:
         self.device = device
 
     def take_action(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         probs = self.actor(state)
         action_dist = torch.distributions.Categorical(probs)
         action = action_dist.sample()
@@ -141,7 +141,7 @@ class PPOContinuous:
         self.device = device
 
     def take_action(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         mu, sigma = self.actor(state)
         action_dist = torch.distributions.Normal(mu, sigma)
         action = action_dist.sample()
@@ -177,8 +177,7 @@ class PPOContinuous:
             surr1 = ratio * advantage
             surr2 = torch.clamp(ratio, 1 - self.eps, 1 + self.eps) * advantage
             actor_loss = torch.mean(-torch.min(surr1, surr2))
-            critic_loss = torch.mean(
-                F.mse_loss(self.critic(states), td_target.detach()))
+            critic_loss = torch.mean(F.mse_loss(self.critic(states), td_target.detach()))
             self.actor_optimizer.zero_grad()
             self.critic_optimizer.zero_grad()
             actor_loss.backward()
@@ -195,10 +194,9 @@ gamma = 0.9
 lmbda = 0.9
 epochs = 10
 eps = 0.2
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device(
-    "cpu")
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-env_name = 'Pendulum-v0'
+env_name = 'Pendulum-v1'
 env = gym.make(env_name)
 torch.manual_seed(0)
 state_dim = env.observation_space.shape[0]

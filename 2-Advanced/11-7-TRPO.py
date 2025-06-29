@@ -57,7 +57,7 @@ class TRPO:
         self.device = device
 
     def take_action(self, state):
-        state = torch.tensor([state], dtype=torch.float).to(self.device)
+        state = torch.tensor(np.array([state]), dtype=torch.float).to(self.device)
         probs = self.actor(state)
         action_dist = torch.distributions.Categorical(probs)
         action = action_dist.sample()
@@ -154,7 +154,7 @@ kl_constraint = 0.0005
 alpha = 0.5
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-env_name = 'CartPole-v0'
+env_name = 'CartPole-v1'
 env = gym.make(env_name)
 torch.manual_seed(0)
 agent = TRPO(hidden_dim, env.observation_space, env.action_space, lmbda,

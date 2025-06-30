@@ -2,29 +2,20 @@
 
 [refer book](https://hrl.boyuai.com/slides)
 
-from chapter 3 Markov Decision Process
+commit message format:
+`<type>: <subject>`
+
+type:(!must!)
++ feat: 新功能
++ fix: 修复
++ docs: 文档
++ style: 格式（不影响代码运行的变动）
++ refactor: 重构（即不是新增功能，也不是修改bug的代码变动）
++ test: 测试
++ chore: 构建过程或辅助工具的变动
++ revert: 撤销之前的commit
++ merge: 合并分支
++ sync: 同步分支
 
 
-## history:
-+ (25.04.26)-1.1.0 Add PETS.
-+ (25.04.21)-1.0.0 create repository.
-
-
-
-```bash
-git push -u origin main --force
-```
-
-
-e.g.    ->  for example, 例如。
-
-i.e.    ->  in othe words, 换句话说。
-
-etc.    ->  and so on, 等等。
-
-et al.  ->  等其他人。
-
-ex.     ->  exercise.
-
-asap    -> as soon as possible.
-
+subject:(!must!) 描述

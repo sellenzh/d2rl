@@ -280,7 +280,7 @@ with tqdm(total=n_episode, desc="进度条") as pbar:
         while not done and steps < 200:
             steps += 1
             action = agent.take_action(state)
-            next_state, reward, done, _ = env.step(action)
+            next_state, reward, done, _, _ = env.step(action)
             state_list.append(state)
             action_list.append(action)
             next_state_list.append(next_state)
